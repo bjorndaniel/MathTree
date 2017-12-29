@@ -11,18 +11,19 @@ namespace MathTree
     public class Addition
     {
         private Dictionary<Entry, (int pin, bool correct)> _results = new Dictionary<Entry, (int pin, bool correct)>();
+
         private Gpio _gpio = new Gpio();
         private bool _blink;
         Ooui.Element Create()
         {
             var counter = 4;
             var random = new Random();
-            var laoyout = new StackLayout
+            var layout = new StackLayout
             {
                 Padding = new Thickness(50),
                 HorizontalOptions = LayoutOptions.CenterAndExpand
             };
-            laoyout.Children.Add(new Xamarin.Forms.Label
+            layout.Children.Add(new Xamarin.Forms.Label
             {
                 Text = "Fyll i de rätta svaren för att tända granen",
                     HorizontalOptions = LayoutOptions.CenterAndExpand,
@@ -43,18 +44,17 @@ namespace MathTree
                     grid.Children.Add(CreateEntry(random, column, row, counter), column, row);
                     counter++;
                 }
-
             }
-            laoyout.Children.Add(grid);
+            layout.Children.Add(grid);
             var button = new Xamarin.Forms.Button
             {
                 Text = "Börja om"
             };
             button.Clicked += Reset;
-            laoyout.Children.Add(button);
+            layout.Children.Add(button);
             var content = new ContentPage
             {
-                Content = laoyout,
+                Content = layout,
             };
             return content.GetOouiElement();
         }
@@ -96,12 +96,22 @@ namespace MathTree
         private void Reset(object sender, EventArgs args)
         {
             _blink = false;
+            Thread.Sleep(1500);
             _gpio.WritePin(2, false);
+            var random = new Random();
             _results.Keys.ToList().ForEach(key =>
             {
                 key.BackgroundColor = Xamarin.Forms.Color.White;
                 var e = _results[key];
                 e.correct = false;
+                int left = random.Next(10, 100);
+                int right = random.Next(1, 10);
+                key.ClassId = (left + right).ToString();
+                var layout = key.Parent as StackLayout;
+                var leftLabel = layout.Children.First(_ => _.ClassId == "Left") as Xamarin.Forms.Label;
+                var rightLabel = layout.Children.First(_ => _.ClassId == "Right") as Xamarin.Forms.Label;
+                leftLabel.Text = left.ToString();
+                rightLabel.Text = right.ToString();
                 _gpio.WritePin(e.pin, false);
                 _results[key] = e;
             });
@@ -114,10 +124,11 @@ namespace MathTree
                 while (_blink)
                 {
                     _gpio.WritePin(2, false);
-                    Enumerable.Range(4, 23).ToList().ForEach(pin => _gpio.WritePin(pin, false));
+                    Enumerable.Range(4, 24).ToList().ForEach(pin => _gpio.WritePin(pin, false));
                     Thread.Sleep(500);
                     _gpio.WritePin(2, true);
-                    Enumerable.Range(4, 23).ToList().ForEach(pin => _gpio.WritePin(pin, true));
+                    Enumerable.Range(4, 24).ToList().ForEach(pin => _gpio.WritePin(pin, true));
+                    Thread.Sleep(500);
                 }
             });
 
@@ -131,9 +142,9 @@ namespace MathTree
             };
             int left = random.Next(10, 100);
             int right = random.Next(1, 10);
-            l.Children.Add(new Xamarin.Forms.Label { Text = left.ToString(), HorizontalTextAlignment = TextAlignment.Start });
+            l.Children.Add(new Xamarin.Forms.Label { Text = left.ToString(), HorizontalTextAlignment = TextAlignment.Start, ClassId="Left" });
             l.Children.Add(new Xamarin.Forms.Label { Text = "+", HorizontalTextAlignment = TextAlignment.Center });
-            l.Children.Add(new Xamarin.Forms.Label { Text = right.ToString(), HorizontalTextAlignment = TextAlignment.End });
+            l.Children.Add(new Xamarin.Forms.Label { Text = right.ToString(), HorizontalTextAlignment = TextAlignment.End, ClassId="Right" });
             var e = new Entry
             {
                 Placeholder = "Skriv svaret här",
@@ -145,5 +156,6 @@ namespace MathTree
             l.Children.Add(e);
             return l;
         }
+        
     }
 }
