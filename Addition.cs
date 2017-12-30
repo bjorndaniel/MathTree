@@ -10,14 +10,21 @@ namespace MathTree
 {
     public class Addition
     {
+        private bool _easy;
+        private Random _random;
         private Dictionary<Entry, (int pin, bool correct)> _results = new Dictionary<Entry, (int pin, bool correct)>();
-
         private Gpio _gpio = new Gpio();
         private bool _blink;
+
+        public Addition(bool easy = false)
+        {
+            _easy = easy;
+            _random = new Random();
+        }
+
         Ooui.Element Create()
         {
             var counter = 4;
-            var random = new Random();
             var layout = new StackLayout
             {
                 Padding = new Thickness(50),
@@ -26,10 +33,10 @@ namespace MathTree
             layout.Children.Add(new Xamarin.Forms.Label
             {
                 Text = "Fyll i de rätta svaren för att tända granen",
-                    HorizontalOptions = LayoutOptions.CenterAndExpand,
-                    FontSize = 40,
-                    WidthRequest = 1500,
-                    HorizontalTextAlignment = TextAlignment.Center
+                HorizontalOptions = LayoutOptions.CenterAndExpand,
+                FontSize = 40,
+                WidthRequest = 1500,
+                HorizontalTextAlignment = TextAlignment.Center
             });
             var grid = new Grid
             {
@@ -41,7 +48,7 @@ namespace MathTree
             {
                 for (int column = 0; column < 4; column++)
                 {
-                    grid.Children.Add(CreateEntry(random, column, row, counter), column, row);
+                    grid.Children.Add(CreateEntry(column, row, counter), column, row);
                     counter++;
                 }
             }
@@ -62,12 +69,17 @@ namespace MathTree
         {
             UI.Publish("/addition", Create);
         }
+
+        public void PublishEasy()
+        {
+            UI.Publish("/additioneasy", Create);
+        }
         public void Check_Answer(object sender, EventArgs args)
         {
             var entry = sender as Entry;
             var text = entry.Text;
             var pin = _results[entry];
-            if (entry != null && entry.Text.Length >= 2)
+            if (entry != null && entry.Text.Length >= 1)
             {
                 if (int.TryParse(entry.ClassId, out int correct) && int.TryParse(entry.Text, out int answer))
                 {
@@ -95,23 +107,22 @@ namespace MathTree
 
         private void Reset(object sender, EventArgs args)
         {
+            _random = new Random();
             _blink = false;
             Thread.Sleep(1500);
             _gpio.WritePin(2, false);
-            var random = new Random();
             _results.Keys.ToList().ForEach(key =>
             {
                 key.BackgroundColor = Xamarin.Forms.Color.White;
                 var e = _results[key];
                 e.correct = false;
-                int left = random.Next(10, 100);
-                int right = random.Next(1, 10);
-                key.ClassId = (left + right).ToString();
+                var question = CreateQuestion();
+                key.ClassId = (question.left + question.right).ToString();
                 var layout = key.Parent as StackLayout;
                 var leftLabel = layout.Children.First(_ => _.ClassId == "Left") as Xamarin.Forms.Label;
                 var rightLabel = layout.Children.First(_ => _.ClassId == "Right") as Xamarin.Forms.Label;
-                leftLabel.Text = left.ToString();
-                rightLabel.Text = right.ToString();
+                leftLabel.Text = question.left.ToString();
+                rightLabel.Text = question.right.ToString();
                 _gpio.WritePin(e.pin, false);
                 _results[key] = e;
             });
@@ -134,28 +145,35 @@ namespace MathTree
 
         }
 
-        private StackLayout CreateEntry(Random random, int column, int row, int counter)
+        private StackLayout CreateEntry(int column, int row, int counter)
         {
             var l = new StackLayout
             {
                 Orientation = StackOrientation.Horizontal
             };
-            int left = random.Next(10, 100);
-            int right = random.Next(1, 10);
-            l.Children.Add(new Xamarin.Forms.Label { Text = left.ToString(), HorizontalTextAlignment = TextAlignment.Start, ClassId="Left" });
+            var question = CreateQuestion();
+            l.Children.Add(new Xamarin.Forms.Label { Text = question.left.ToString(), HorizontalTextAlignment = TextAlignment.Start, ClassId = "Left" });
             l.Children.Add(new Xamarin.Forms.Label { Text = "+", HorizontalTextAlignment = TextAlignment.Center });
-            l.Children.Add(new Xamarin.Forms.Label { Text = right.ToString(), HorizontalTextAlignment = TextAlignment.End, ClassId="Right" });
+            l.Children.Add(new Xamarin.Forms.Label { Text = question.right.ToString(), HorizontalTextAlignment = TextAlignment.End, ClassId = "Right" });
             var e = new Entry
             {
                 Placeholder = "Skriv svaret här",
                 WidthRequest = 150,
-                ClassId = (left + right).ToString()
+                ClassId = (question.left + question.right).ToString()
             };
             _results.Add(e, (counter, false));
             e.TextChanged += Check_Answer;
             l.Children.Add(e);
             return l;
         }
-        
+
+        private (int left, int right) CreateQuestion()
+        {
+            if (_easy)
+            {
+                return (_random.Next(1, 7), _random.Next(0, 3));
+            }
+            return (_random.Next(10, 100), _random.Next(1, 10));
+        }
     }
 }
